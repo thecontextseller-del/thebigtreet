@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>the big treet — café & bakery, Haripur Manali</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Jost:wght@200;300&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root { --bg:#171009; --cream:#e8d5b0; --amber:#c98b4e; }
+  html { scroll-behavior:auto; }
+  body { background:var(--bg); color:var(--cream); font-family:'Jost',sans-serif; }
+
+  .scrub-section { height:520vh; position:relative; }
+  .sticky-stage { position:sticky; top:0; height:100vh; height:100svh; overflow:hidden;
+    display:flex; align-items:center; justify-content:center; }
+  canvas { height:100%; width:min(100%, 732px); object-fit:contain; display:block; margin:0 auto; }
+
+  /* gradient mask — blends frame bottom into page bg, hides any residue */
+  .stage-mask { position:absolute; inset:0; pointer-events:none;
+    background:
+      linear-gradient(to top, var(--bg) 0%, rgba(22,13,8,.85) 7%, transparent 20%),
+      linear-gradient(to bottom, var(--bg) 0%, transparent 12%),
+      radial-gradient(ellipse at center, transparent 55%, rgba(22,13,8,.55) 100%); }
+
+  .brand { position:absolute; top:5vh; left:50%; transform:translateX(-50%);
+    font-family:'Jost',sans-serif; font-weight:200; font-size:.8rem;
+    letter-spacing:.55em; text-transform:uppercase; opacity:.7; padding-left:.55em; }
+
+  .caption { position:absolute; left:50%; bottom:9vh; transform:translateX(-50%);
+    text-align:center; width:92%; pointer-events:none; }
+  .caption h2 { font-family:'Cormorant Garamond',serif; font-weight:400;
+    font-size:clamp(1.6rem,4.5vw,3rem); letter-spacing:.08em; }
+  .caption p { font-size:.68rem; font-weight:300; letter-spacing:.38em;
+    text-transform:uppercase; color:var(--amber); margin-top:.6rem; padding-left:.38em; }
+  .caption .fade { transition:opacity .45s ease, transform .45s ease; }
+  .caption.switching .fade { opacity:0; transform:translateY(8px); }
+
+  .hint { position:absolute; bottom:2.5vh; left:50%; transform:translateX(-50%);
+    font-size:.6rem; letter-spacing:.4em; text-transform:uppercase; opacity:.35;
+    animation:pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity:.12; } }
+
+  .loader { position:fixed; inset:0; background:var(--bg); z-index:9;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+    transition:opacity .7s ease; }
+  .loader.done { opacity:0; pointer-events:none; }
+  .loader .word { font-family:'Cormorant Garamond',serif; font-size:1.3rem; letter-spacing:.5em; padding-left:.5em; }
+  .bar { width:160px; height:1px; background:#3a251a; }
+  .bar i { display:block; height:100%; width:0%; background:var(--amber); transition:width .25s; }
+
+  .after { height:100vh; display:flex; align-items:center; justify-content:center;
+    opacity:.35; letter-spacing:.3em; font-size:.75rem; text-transform:uppercase; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .scrub-section { height:100vh; }
+    .hint { display:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="loader" id="loader">
+  <div class="word">THE BIG TREET</div>
+  <div class="bar"><i id="barfill"></i></div>
+</div>
+
+<section class="scrub-section" id="scrubSection">
+  <div class="sticky-stage">
+    <canvas id="cakeCanvas"></canvas>
+    <div class="stage-mask"></div>
+    <div class="brand">Bit Treet</div>
+    <div class="caption" id="caption">
+      <h2 class="fade" id="capTitle"></h2>
+      <p class="fade" id="capSub"></p>
+    </div>
+    <div class="hint" id="hint">Scroll</div>
+  </div>
+</section>
+
+<section class="after">— rest of the landing page —</section>
+
+<script>
+const FRAME_COUNT = 202;
+const FRAME_PATH = i => `f_${String(i).padStart(3,"0")}.webp`;
+
+const captions = [
+  { at:0.00, t:'Everything Begins',     s:'chocolate · walnut · orange' },
+  { at:0.16, t:'The Chocolate Base',    s:'baked fresh, every day' },
+  { at:0.33, t:'The Natural Touch',     s:'mountain pine · dried citrus' },
+  { at:0.50, t:'Pieces Come Together',  s:'assembled by hand' },
+  { at:0.66, t:'The Final Touch',       s:'silk-swirled ganache' },
+  { at:0.84, t:'A Slice of Perfection', s:'made with love' },
+  { at:0.95, t:'the big treet',             s:'small café · big flavours · order on WhatsApp' },
+];
+
+const canvas = document.getElementById('cakeCanvas');
+const ctx = canvas.getContext('2d');
+const capEl = document.getElementById('caption');
+const images = new Array(FRAME_COUNT + 1);
+let loaded = 0, ready = false, curCap = -1, curFrame = 1;
+
+function fit() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width  = canvas.clientWidth  * dpr;
+  canvas.height = canvas.clientHeight * dpr;
+  draw(curFrame);
+}
+
+function draw(i) {
+  const img = images[i]; if (!img || !img.complete) return;
+  curFrame = i;
+  const cw = canvas.width, ch = canvas.height;
+  const s = Math.min(cw / img.naturalWidth, ch / img.naturalHeight);
+  const w = img.naturalWidth * s, h = img.naturalHeight * s;
+  ctx.fillStyle = '#171009'; ctx.fillRect(0, 0, cw, ch);
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, (cw - w) / 2, (ch - h) / 2, w, h);
+}
+
+function setCaption(p) {
+  let idx = 0;
+  captions.forEach((c, i) => { if (p >= c.at) idx = i; });
+  if (idx === curCap) return;
+  curCap = idx;
+  capEl.classList.add('switching');
+  setTimeout(() => {
+    document.getElementById('capTitle').textContent = captions[idx].t;
+    document.getElementById('capSub').textContent = captions[idx].s;
+    capEl.classList.remove('switching');
+  }, 220);
+}
+
+function onScroll() {
+  if (!ready) return;
+  const r = document.getElementById('scrubSection').getBoundingClientRect();
+  const total = r.height - window.innerHeight;
+  const p = Math.min(1, Math.max(0, -r.top / total));
+  const frame = Math.min(FRAME_COUNT, Math.max(1, Math.round(p * (FRAME_COUNT - 1)) + 1));
+  requestAnimationFrame(() => { draw(frame); setCaption(p); });
+  document.getElementById('hint').style.opacity = p > 0.03 ? 0 : '';
+}
+
+function preload() {
+  for (let i = 1; i <= FRAME_COUNT; i++) {
+    const img = new Image();
+    img.src = FRAME_PATH(i);
+    img.onload = () => {
+      loaded++;
+      document.getElementById('barfill').style.width = (loaded / FRAME_COUNT * 100) + '%';
+      if (i === 1) { fit(); }
+      if (loaded === FRAME_COUNT) {
+        ready = true;
+        document.getElementById('loader').classList.add('done');
+        setCaption(0); onScroll();
+      }
+    };
+    images[i] = img;
+  }
+}
+
+window.addEventListener('scroll', onScroll, { passive:true });
+window.addEventListener('resize', fit);
+preload();
+</script>
+</body>
+</html>
